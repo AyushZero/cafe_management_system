@@ -18,7 +18,7 @@
       <tbody>
         {% for reservation in reservations %}
           <tr>
-            <td>{{ reservation['reservation_time'] }}</td>
+            <td>{{ reservation['reservation_time'].replace('T', ' ') }}</td>
             <td>{{ reservation['num_guests'] }}</td>
             <td>{{ reservation['status'] }}</td>
             <td>

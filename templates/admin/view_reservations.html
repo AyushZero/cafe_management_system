@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}View All Reservations{% endblock %}
+
+{% block content %}
+  <h2>All Customer Reservations</h2>
+  {% if reservations %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Customer</th>
+          <th>Reservation Time</th>
+          <th>Guests</th>
+          <th>Status</th>
+          <th>Orders</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reservation in reservations %}
+          <tr>
+            <td>{{ reservation['id'] }}</td>
+            <td>{{ reservation['customer_username'] }}</td>
+            <td>{{ reservation['reservation_time'].replace('T', ' ') }}</td>
+            <td>{{ reservation['num_guests'] }}</td>
+            <td>{{ reservation['status'] }}</td>
+            <td>
+              {% if reservation['orders'] %}
+                <div style="margin-bottom: 10px;">
+                  {% for order in reservation['orders'] %}
+                    <div style="border: 1px solid #eee; padding: 8px; margin-bottom: 5px;">
+                      <strong>Order ID: {{ order['order_id'] }}</strong><br>
+                      Time: {{ order['order_time'] }}<br>
+                      Total: ${{ order['total_amount'] }}<br>
+                      Employee: {{ order['employee_username'] }}<br>
+                      Items:
+                      <ul style="list-style-type: none; padding-left: 10px;">
+                        {% for item in order['items'] %}
+                          <li>{{ item['quantity'] }} x {{ item['item_name'] }} at ${{ item['price_per_item'] }} each</li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                No orders for this reservation.
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No reservations found.</p>
+  {% endif %}
+  <p><a href="{{ url_for('admin_dashboard') }}" class="button-link mt-2">Back to Dashboard</a></p>
+{% endblock %}

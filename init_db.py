@@ -62,6 +62,19 @@ def init_db():
         ''')
         print("Created 'orders' table.")
 
+        # Create order_items table (NEW)
+        cursor.execute('''
+        CREATE TABLE order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            item_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            price_per_item REAL NOT NULL,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE -- Delete items if order is deleted
+        );
+        ''')
+        print("Created 'order_items' table.")
+
         # --- Seed Data (Optional but helpful for testing) ---
 
         # Add a default admin user
