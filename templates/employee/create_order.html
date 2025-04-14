@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Order{% endblock %}
+
+{% block content %}
+  <h2>Create New Order</h2>
+  <form method="post">
+      <label for="reservation_id">Link to Reservation (Optional):</label><br>
+      <select name="reservation_id" id="reservation_id">
+          <option value="">-- Walk-in / No Reservation --</option>
+          {% for reservation in reservations %}
+              <option value="{{ reservation['id'] }}">
+                  {{ reservation['customer_username'] }} @ {{ reservation['reservation_time'] }} ({{ reservation['num_guests'] }} guests) - ID: {{ reservation['id'] }}
+              </option>
+          {% endfor %}
+      </select><br>
+
+     <label for="total_amount">Total Order Amount:</label><br>
+     <input type="number" step="0.01" id="total_amount" name="total_amount" min="0.01" required><br><br>
+     <input type="submit" value="Create Order">
+  </form>
+  <p><a href="{{ url_for('employee_dashboard') }}">Back to Dashboard</a></p>
+{% endblock %}

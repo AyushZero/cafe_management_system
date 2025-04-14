@@ -1,0 +1,137 @@
+/* static/style.css */
+body {
+    font-family: sans-serif;
+    margin: 20px;
+    line-height: 1.6;
+    background-color: #f4f4f4;
+}
+
+nav {
+    background-color: #333;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+nav h1 a {
+    color: #fff;
+    text-decoration: none;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+nav ul li {
+    margin-left: 15px;
+}
+
+nav ul li a {
+    color: #fff;
+    text-decoration: none;
+}
+nav ul li a:hover {
+    text-decoration: underline;
+}
+
+nav ul li span {
+    color: #ccc; /* Lighter color for static text */
+}
+
+
+main {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h1, h2 {
+    color: #333;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+input[type=text],
+input[type=password],
+input[type=datetime-local],
+input[type=number],
+input[type=email], /* If you add email fields */
+select {
+    width: 95%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+input[type=submit], button, .button-link { /* Style links like buttons */
+    background-color: #5cb85c;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none; /* For links styled as buttons */
+    display: inline-block; /* For links styled as buttons */
+    margin-top: 10px;
+}
+
+input[type=submit]:hover, button:hover, .button-link:hover {
+    background-color: #4cae4c;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+ul.flashes {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+}
+
+.flashes li {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.flashes .success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6; }
+.flashes .danger { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1; }
+.flashes .warning { background-color: #fcf8e3; color: #8a6d3b; border: 1px solid #faebcc; }
+.flashes .info { background-color: #d9edf7; color: #31708f; border: 1px solid #bce8f1; }
+
+footer {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #666;
+}
