@@ -13,7 +13,7 @@
           <th>Reservation Time</th>
           <th>Guests</th>
           <th>Status</th>
-          <th>Orders</th>
+          <th>Order Actions</th> {# Renamed column header #}
         </tr>
       </thead>
       <tbody>
@@ -25,26 +25,13 @@
             <td>{{ reservation['num_guests'] }}</td>
             <td>{{ reservation['status'] }}</td>
             <td>
-              {% if reservation['orders'] %}
-                <div style="margin-bottom: 10px;">
-                  {% for order in reservation['orders'] %}
-                    <div style="border: 1px solid #eee; padding: 8px; margin-bottom: 5px;">
-                      <strong>Order ID: {{ order['order_id'] }}</strong><br>
-                      Time: {{ order['order_time'] }}<br>
-                      Total: ${{ "%.2f"|format(order['total_amount']) }}<br>
-                      Processed by: {{ order['employee_username'] }}<br>
-                      Items:
-                      <ul style="list-style-type: none; padding-left: 10px;">
-                        {% for item in order['items'] %}
-                          <li>{{ item['quantity'] }} x {{ item['item_name'] }} at ${{ item['price_per_item'] }} each</li>
-                        {% endfor %}
-                      </ul>
-                    </div>
-                  {% endfor %}
-                </div>
-              {% else %}
-                No orders for this reservation.
-              {% endif %}
+              {# Link to the new add order page #}
+              <a href="{{ url_for('employee_add_order', reservation_id=reservation['id']) }}" class="button-link-small">Add/View Order</a>
+
+              {# Optional: You can still display existing completed order summaries here if needed #}
+              {# Or remove the old display logic from here as it's handled on the add_order page #}
+              {# {% if reservation['orders'] %} ... {% endif %} #}
+
             </td>
           </tr>
         {% endfor %}

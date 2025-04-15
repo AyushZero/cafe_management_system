@@ -2,6 +2,7 @@
 import sqlite3
 import os
 import datetime
+import decimal
 from flask import Flask, render_template, request, redirect, url_for, session, g, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps # For decorators
@@ -658,125 +659,166 @@ def employee_add_reservation():
     # Pass customers list again in case of POST error redisplay
     return render_template('employee/add_reservation.html', customers=customers)
 
-
-@app.route('/employee/create_order', methods=['GET', 'POST'])
+@app.route('/employee/order/add/<int:reservation_id>', methods=['GET'])
 @login_required
 @role_required('employee')
-def employee_create_order():
-    reservations = [] # Active/recent reservations
+def employee_add_order(reservation_id):
+    """Displays the page to add items to an order for a specific reservation."""
     db = get_db()
-    if not db: return render_template('employee/create_order.html', sample_items=SAMPLE_ITEMS, reservations=[], error="Database connection failed")
+    if not db:
+        flash("Database connection failed.", "danger")
+        return redirect(url_for('employee_view_reservations'))
 
-    # Get list of recent/active reservations
+    reservation = None
+    order_details = None
+    order_items = []
+    current_total = decimal.Decimal('0.00')
+
     try:
+        # Fetch reservation details
         cursor = db.execute("""
-            SELECT r.id, r.reservation_time, r.num_guests, u.username as customer_username
+            SELECT r.id, r.reservation_time, r.num_guests, r.status, u.username as customer_username
             FROM reservations r
             JOIN users u ON r.customer_id = u.id
-            WHERE r.status = 'confirmed'
-            ORDER BY r.reservation_time DESC LIMIT 20
-        """)
-        reservations = cursor.fetchall()
+            WHERE r.id = ?
+        """, (reservation_id,))
+        reservation = cursor.fetchone()
+
+        if not reservation:
+            flash("Reservation not found.", "warning")
+            return redirect(url_for('employee_view_reservations'))
+
+        # Find if an order already exists for this reservation
+        # For simplicity, we assume one order per reservation initiated by an employee for now.
+        cursor = db.execute("""
+            SELECT id, total_amount FROM orders WHERE reservation_id = ? ORDER BY order_time DESC LIMIT 1
+        """, (reservation_id,))
+        order_details = cursor.fetchone()
+
+        if order_details:
+            # Fetch existing items for this order
+            items_cursor = db.execute("""
+                SELECT item_name, quantity, price_per_item
+                FROM order_items
+                WHERE order_id = ?
+            """, (order_details['id'],))
+            order_items = [dict(row) for row in items_cursor.fetchall()]
+            current_total = decimal.Decimal(str(order_details['total_amount'])) # Use Decimal for currency
+
+
     except sqlite3.Error as e:
-        print(f"DB Error fetching reservations for order creation: {e}")
-        flash("Could not load recent reservations.", "warning")
+        print(f"DB Error fetching reservation/order details for adding items: {e}")
+        flash("Could not load order details.", "danger")
+        return redirect(url_for('employee_view_reservations'))
 
-    if request.method == 'POST':
-        reservation_id_str = request.form.get('reservation_id')
-        employee_id = session['user_id']
-        error = None
-        order_items_details = [] # To store [{'item': item_dict, 'quantity': qty}, ...]
-        total_amount = 0.0
+    # Ensure reservation is passed as a dictionary-like object
+    reservation_dict = dict(reservation) if reservation else None
 
-        # Process submitted items
-        items_by_id = {item['id']: item for item in SAMPLE_ITEMS} # For quick lookup
-        item_added = False # Flag to check if at least one item was added
+    return render_template(
+        'employee/add_order.html',
+        reservation=reservation_dict,
+        menu_items=SAMPLE_ITEMS, # Pass sample items from app.py
+        current_order_items=order_items,
+        current_total=current_total,
+        order_id=order_details['id'] if order_details else None
+    )
 
-        for i in range(5): # Assuming max 5 item rows from the template
-            item_id_str = request.form.get(f'item_id_{i}')
-            quantity_str = request.form.get(f'quantity_{i}')
 
-            if item_id_str and quantity_str: # Check if both fields exist for this row
-                try:
-                    item_id = int(item_id_str)
-                    quantity = int(quantity_str)
+@app.route('/employee/order/add_item/<int:reservation_id>', methods=['POST'])
+@login_required
+@role_required('employee')
+def employee_add_item(reservation_id):
+    """Handles adding a selected item to the order."""
+    db = get_db()
+    employee_id = session['user_id']
+    if not db:
+        flash("Database connection failed.", "danger")
+        return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
-                    if item_id in items_by_id and quantity > 0:
-                        item = items_by_id[item_id]
-                        order_items_details.append({'item': item, 'quantity': quantity})
-                        total_amount += item['price'] * quantity
-                        item_added = True
-                    elif quantity < 0:
-                         error = f"Quantity for item row {i+1} cannot be negative."
-                         break # Stop processing on error
+    item_id_str = request.form.get('item_id')
+    quantity_str = request.form.get('quantity', '1') # Default quantity to 1 if not provided
 
-                except ValueError:
-                    # Ignore rows with non-integer IDs or quantities if not zero
-                    if quantity_str != '0' and item_id_str != '':
-                       error = f"Invalid item ID or quantity entered for item row {i+1}."
-                       break # Stop processing on error
-                    # Otherwise, just ignore empty/zero quantity rows
+    if not item_id_str:
+        flash("No item selected.", "warning")
+        return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
-        if not item_added and error is None:
-             error = "No items were added to the order."
+    try:
+        item_id = int(item_id_str)
+        quantity = int(quantity_str)
+        if quantity <= 0:
+            flash("Quantity must be positive.", "warning")
+            return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
-        # Handle optional reservation_id
-        db_reservation_id = None
-        if reservation_id_str and reservation_id_str.isdigit():
-             db_reservation_id = int(reservation_id_str)
-        elif reservation_id_str and reservation_id_str != '': # Handle non-numeric selection if needed
-             error = "Invalid reservation selected."
+        # Find the selected item in SAMPLE_ITEMS
+        selected_item = next((item for item in SAMPLE_ITEMS if item['id'] == item_id), None)
 
-        if error is None:
-             # Proceed to insert into DB
-             try:
-                 # Start transaction
-                 cursor = db.cursor() # Use cursor explicitly for transaction control
+        if not selected_item:
+            flash("Selected item not found.", "danger")
+            return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
-                 # Insert into orders table
-                 cursor.execute(
-                     'INSERT INTO orders (reservation_id, employee_id, total_amount) VALUES (?, ?, ?)',
-                     (db_reservation_id, employee_id, total_amount)
-                 )
-                 order_id = cursor.lastrowid # Get the ID of the order just inserted
+        item_name = selected_item['name']
+        price_per_item = decimal.Decimal(str(selected_item['price'])) # Use Decimal
 
-                 # Insert into order_items table
-                 for detail in order_items_details:
-                     cursor.execute(
-                         'INSERT INTO order_items (order_id, item_name, quantity, price_per_item) VALUES (?, ?, ?, ?)',
-                         (order_id, detail['item']['name'], detail['quantity'], detail['item']['price'])
-                     )
+        # --- Transaction: Find/Create Order and Add Item ---
+        order_id = None
+        new_total = decimal.Decimal('0.00')
 
-                 # Update loyalty points if linked to a customer via reservation
-                 customer_id_for_points = None
-                 if db_reservation_id:
-                      cursor.execute('SELECT customer_id FROM reservations WHERE id = ?', (db_reservation_id,))
-                      res_data = cursor.fetchone()
-                      if res_data:
-                           customer_id_for_points = res_data['customer_id']
+        try:
+            # Check if an order exists
+            cursor = db.execute("SELECT id FROM orders WHERE reservation_id = ? LIMIT 1", (reservation_id,))
+            existing_order = cursor.fetchone()
 
-                 if customer_id_for_points:
-                     points_to_add = int(total_amount) # Example: 1 point per dollar/unit
-                     cursor.execute(
-                         'UPDATE users SET loyalty_points = loyalty_points + ? WHERE id = ?',
-                         (points_to_add, customer_id_for_points)
-                     )
-                     print(f"Added {points_to_add} loyalty points to customer {customer_id_for_points}")
+            if existing_order:
+                order_id = existing_order['id']
+            else:
+                # Create a new order if none exists
+                cursor = db.execute(
+                    "INSERT INTO orders (reservation_id, employee_id, total_amount) VALUES (?, ?, ?)",
+                    (reservation_id, employee_id, 0.0) # Initial total is 0
+                )
+                order_id = cursor.lastrowid # Get the ID of the newly inserted order
+                print(f"Created new order ID {order_id} for reservation {reservation_id}")
 
-                 db.commit() # Commit transaction
-                 flash(f'Order #{order_id} (Total: ${total_amount:.2f}) created successfully!', 'success')
-                 return redirect(url_for('employee_dashboard'))
+            # Add the item to order_items
+            cursor = db.execute(
+                "INSERT INTO order_items (order_id, item_name, quantity, price_per_item) VALUES (?, ?, ?, ?)",
+                (order_id, item_name, quantity, str(price_per_item)) # Store price as string/real
+            )
+            print(f"Added {quantity} x {item_name} to order {order_id}")
 
-             except sqlite3.Error as e:
-                 db.rollback() # Rollback on error
-                 print(f"DB Error creating order with items: {e}")
-                 error = "An error occurred creating the order."
-                 flash(error, 'danger')
-        else:
-             flash(error, 'danger')
+            # Recalculate the total for the order
+            cursor = db.execute(
+                "SELECT SUM(quantity * price_per_item) as total FROM order_items WHERE order_id = ?",
+                 (order_id,)
+            )
+            result = cursor.fetchone()
+            new_total = decimal.Decimal(str(result['total'])) if result and result['total'] is not None else decimal.Decimal('0.00')
 
-    # Pass sample items to template for GET request and POST errors
-    return render_template('employee/create_order.html', sample_items=SAMPLE_ITEMS, reservations=reservations)
+            # Update the total_amount in the orders table
+            db.execute("UPDATE orders SET total_amount = ? WHERE id = ?", (str(new_total), order_id))
+
+            db.commit() # Commit transaction
+            flash(f"{quantity} x {item_name} added to order.", "success")
+
+        except sqlite3.Error as e:
+            db.rollback() # Rollback on error
+            print(f"DB Error adding item to order: {e}")
+            flash("Error adding item to order.", "danger")
+        except Exception as e:
+            db.rollback()
+            print(f"Generic Error adding item to order: {e}")
+            flash("An unexpected error occurred.", "danger")
+
+
+    except ValueError:
+        flash("Invalid item ID or quantity.", "danger")
+    except Exception as e:
+        print(f"Error processing add item form: {e}")
+        flash("An error occurred processing the request.", "danger")
+
+    return redirect(url_for('employee_add_order', reservation_id=reservation_id))
+
+
 
 # --- Admin Routes ---
 
