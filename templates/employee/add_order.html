@@ -33,16 +33,16 @@
         <tr>
           <td>{{ item['item_name'] }}</td>
           <td>{{ item['quantity'] }}</td>
-          <td>${{ "%.2f"|format(item['price_per_item']) }}</td>
+          <td>₹{{ "%.2f"|format(item['price_per_item']) }}</td>
            {# Calculate subtotal - Requires price_per_item to be a number #}
-          <td>${{ "%.2f"|format(item['quantity'] * item['price_per_item']) }}</td>
+          <td>₹{{ "%.2f"|format(item['quantity'] * item['price_per_item']) }}</td>
         </tr>
         {% endfor %}
       </tbody>
       <tfoot>
         <tr>
           <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
-          <td><strong>${{ "%.2f"|format(current_total) }}</strong></td>
+          <td><strong>₹{{ "%.2f"|format(current_total) }}</strong></td>
         </tr>
       </tfoot>
     </table>
@@ -59,7 +59,7 @@
       <select name="item_id" id="item_id" required>
         <option value="">-- Select an item --</option>
         {% for item in menu_items %}
-          <option value="{{ item['id'] }}">{{ item['name'] }} - ${{ "%.2f"|format(item['price']) }}</option>
+          <option value="{{ item['id'] }}">{{ item['name'] }} - ₹{{ "%.2f"|format(item['price']) }}</option>
         {% endfor %}
       </select>
     </div>

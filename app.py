@@ -15,13 +15,36 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, 'cafe.db')
 
 SAMPLE_ITEMS = [
-    {'id': 1, 'name': 'Espresso', 'price': 2.50},
-    {'id': 2, 'name': 'Latte', 'price': 3.50},
-    {'id': 3, 'name': 'Cappuccino', 'price': 3.25},
-    {'id': 4, 'name': 'Filter Coffee', 'price': 2.75},
-    {'id': 5, 'name': 'Croissant', 'price': 2.00},
-    {'id': 6, 'name': 'Muffin', 'price': 2.25},
-    {'id': 7, 'name': 'Sandwich', 'price': 5.50},
+    {'id': 1, 'name': 'Espresso', 'price': 150.00},
+    {'id': 2, 'name': 'Latte', 'price': 220.00},
+    {'id': 3, 'name': 'Cappuccino', 'price': 200.00},
+    # Filter Coffee is excluded as requested
+    {'id': 5, 'name': 'Croissant', 'price': 180.00},
+    {'id': 6, 'name': 'Muffin', 'price': 120.00},
+    {'id': 7, 'name': 'Sandwich', 'price': 300.00},
+    {'id': 8, 'name': 'Americano', 'price': 180.00},
+    {'id': 9, 'name': 'Mocha', 'price': 250.00},
+    {'id': 10, 'name': 'Hot Chocolate', 'price': 230.00},
+    {'id': 11, 'name': 'Masala Chai', 'price': 100.00},
+    {'id': 12, 'name': 'Iced Latte', 'price': 250.00},
+    {'id': 13, 'name': 'Cold Coffee', 'price': 200.00},
+    {'id': 14, 'name': 'Iced Tea', 'price': 180.00},
+    {'id': 15, 'name': 'Lemonade', 'price': 150.00},
+    {'id': 16, 'name': 'Milkshake', 'price': 280.00},
+    {'id': 17, 'name': 'Smoothie', 'price': 350.00},
+    {'id': 18, 'name': 'Panini', 'price': 350.00},
+    {'id': 19, 'name': 'Burger', 'price': 400.00},
+    {'id': 20, 'name': 'Pasta', 'price': 450.00},
+    {'id': 21, 'name': 'Pizza Slice', 'price': 250.00},
+    {'id': 22, 'name': 'Garlic Bread', 'price': 200.00},
+    {'id': 23, 'name': 'French Fries', 'price': 150.00},
+    {'id': 24, 'name': 'Nachos', 'price': 280.00},
+    {'id': 25, 'name': 'Pastry', 'price': 200.00},
+    {'id': 26, 'name': 'Cake Slice', 'price': 250.00},
+    {'id': 27, 'name': 'Brownie', 'price': 220.00},
+    {'id': 28, 'name': 'Cookie', 'price': 100.00},
+    {'id': 29, 'name': 'Ginger Tea', 'price': 90.00},
+    {'id': 30, 'name': 'Green Tea', 'price': 120.00}
 ]
 
 def get_db():
@@ -723,12 +746,11 @@ def employee_add_order(reservation_id):
         order_id=order_details['id'] if order_details else None
     )
 
-
 @app.route('/employee/order/add_item/<int:reservation_id>', methods=['POST'])
 @login_required
 @role_required('employee')
 def employee_add_item(reservation_id):
-    """Handles adding a selected item to the order."""
+    """Handles adding a selected item to the order and updates loyalty points."""
     db = get_db()
     employee_id = session['user_id']
     if not db:
@@ -736,7 +758,7 @@ def employee_add_item(reservation_id):
         return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
     item_id_str = request.form.get('item_id')
-    quantity_str = request.form.get('quantity', '1') # Default quantity to 1 if not provided
+    quantity_str = request.form.get('quantity', '1') # Default quantity to 1
 
     if not item_id_str:
         flash("No item selected.", "warning")
@@ -749,7 +771,6 @@ def employee_add_item(reservation_id):
             flash("Quantity must be positive.", "warning")
             return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
-        # Find the selected item in SAMPLE_ITEMS
         selected_item = next((item for item in SAMPLE_ITEMS if item['id'] == item_id), None)
 
         if not selected_item:
@@ -757,13 +778,25 @@ def employee_add_item(reservation_id):
             return redirect(url_for('employee_add_order', reservation_id=reservation_id))
 
         item_name = selected_item['name']
-        price_per_item = decimal.Decimal(str(selected_item['price'])) # Use Decimal
+        # Use Decimal for accurate price calculations
+        price_per_item = decimal.Decimal(str(selected_item['price']))
+        item_subtotal = price_per_item * quantity
 
-        # --- Transaction: Find/Create Order and Add Item ---
+        # --- Transaction: Find/Create Order, Add Item, Update Total, Update Loyalty ---
         order_id = None
-        new_total = decimal.Decimal('0.00')
+        customer_id = None
 
         try:
+            # Get customer_id from reservation
+            cursor = db.execute("SELECT customer_id FROM reservations WHERE id = ?", (reservation_id,))
+            reservation_data = cursor.fetchone()
+            if not reservation_data:
+                 flash("Could not find reservation to link order.", "danger")
+                 # No rollback needed here as nothing is committed yet
+                 return redirect(url_for('employee_view_reservations'))
+            customer_id = reservation_data['customer_id']
+
+
             # Check if an order exists
             cursor = db.execute("SELECT id FROM orders WHERE reservation_id = ? LIMIT 1", (reservation_id,))
             existing_order = cursor.fetchone()
@@ -774,9 +807,9 @@ def employee_add_item(reservation_id):
                 # Create a new order if none exists
                 cursor = db.execute(
                     "INSERT INTO orders (reservation_id, employee_id, total_amount) VALUES (?, ?, ?)",
-                    (reservation_id, employee_id, 0.0) # Initial total is 0
+                    (reservation_id, employee_id, '0.00') # Initial total is 0
                 )
-                order_id = cursor.lastrowid # Get the ID of the newly inserted order
+                order_id = cursor.lastrowid
                 print(f"Created new order ID {order_id} for reservation {reservation_id}")
 
             # Add the item to order_items
@@ -792,33 +825,46 @@ def employee_add_item(reservation_id):
                  (order_id,)
             )
             result = cursor.fetchone()
+            # Ensure new_total is Decimal
             new_total = decimal.Decimal(str(result['total'])) if result and result['total'] is not None else decimal.Decimal('0.00')
 
             # Update the total_amount in the orders table
             db.execute("UPDATE orders SET total_amount = ? WHERE id = ?", (str(new_total), order_id))
+            print(f"Updated order {order_id} total to {new_total}")
 
-            db.commit() # Commit transaction
-            flash(f"{quantity} x {item_name} added to order.", "success")
+            # --- Loyalty Points Logic ---
+            if customer_id:
+                # Calculate points for the item(s) just added (e.g., 1 point per dollar, rounded down)
+                points_to_add = int(item_subtotal)
+                if points_to_add > 0:
+                    db.execute(
+                        "UPDATE users SET loyalty_points = loyalty_points + ? WHERE id = ?",
+                        (points_to_add, customer_id)
+                    )
+                    print(f"Awarded {points_to_add} loyalty points to customer {customer_id}")
+            # --- End Loyalty Points Logic ---
+
+            db.commit() # Commit all changes (item add, total update, loyalty update)
+            flash(f"{quantity} x {item_name} added. {points_to_add if customer_id and points_to_add > 0 else 0} loyalty points awarded.", "success")
 
         except sqlite3.Error as e:
-            db.rollback() # Rollback on error
-            print(f"DB Error adding item to order: {e}")
-            flash("Error adding item to order.", "danger")
+            db.rollback() # Rollback on any DB error during the transaction
+            print(f"DB Error adding item/updating points: {e}")
+            flash("Error adding item to order or updating points.", "danger")
         except Exception as e:
             db.rollback()
-            print(f"Generic Error adding item to order: {e}")
+            print(f"Generic Error adding item/updating points: {e}")
             flash("An unexpected error occurred.", "danger")
 
 
     except ValueError:
         flash("Invalid item ID or quantity.", "danger")
     except Exception as e:
+        # Catch potential errors before DB connection if needed
         print(f"Error processing add item form: {e}")
         flash("An error occurred processing the request.", "danger")
 
     return redirect(url_for('employee_add_order', reservation_id=reservation_id))
-
-
 
 # --- Admin Routes ---
 
