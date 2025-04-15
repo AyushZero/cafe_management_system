@@ -59,7 +59,7 @@
             <td>
               {# Added Delete Button Form #}
               <form action="{{ url_for('admin_delete_reservation', res_id=reservation['id']) }}" method="post" style="display: inline;">
-                  <button type="submit" class="button-link-danger button-link-small" onclick="return confirm('Are you sure you want to delete reservation #{{ reservation['id'] }} and all associated orders? This cannot be undone.');">
+                  <button type="submit" class="button-link-danger button-link-small" onclick="return confirm('Are you sure you want to delete reservation #{{ reservation.id }} and all associated orders? This cannot be undone.');">
                       Delete
                   </button>
               </form>

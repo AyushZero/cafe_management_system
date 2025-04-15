@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Cafe Management System{% endblock %}</title>
+    <title>{% block title %}Café Zero{% endblock %}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +14,8 @@
   <body>
     <nav class="navbar">
       <div class="container">
-          <h1><a href="{{ url_for('index') }}">Cafe Management System</a></h1>
+        <h1 style="margin-top: 0.2em;"><a href="{{ url_for('index') }}">Café Zero</a></h1>
+
           <ul>
             {% if 'user_id' in session %}
               <li><span>User: {{ session['username'] }} ({{ session['role'] }})</span></li>
@@ -41,6 +42,6 @@
     </main>
 
     <footer class="container">
-      <p>&copy; {{ current_year }} Cafe Management System</p> </footer>
+      <p>&copy; {{ current_year }} Café Zero</p> </footer>
   </body>
 </html>
