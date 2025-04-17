@@ -5,12 +5,11 @@ import datetime
 import decimal
 from flask import Flask, render_template, request, redirect, url_for, session, g, flash
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps # For decorators
+from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24) # Replace with a strong, static secret key in production
+app.secret_key = os.urandom(24)
 
-# --- Database Setup ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, 'cafe.db')
 
